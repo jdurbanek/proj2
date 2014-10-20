@@ -252,9 +252,11 @@ public class Router
 			{ break; }
 			
 			// Update ARP cache with contents of ARP reply
+		    int senderIp = ByteBuffer.wrap(
+				    arpPacket.getSenderProtocolAddress()).getInt();
 			ArpRequest request = this.arpCache.insert(
-					new MACAddress(arpPacket.getTargetHardwareAddress()),
-					targetIp);
+					new MACAddress(arpPacket.getSenderHardwareAddress()),
+					senderIp);
 			
 			// Process pending ARP request entry, if there is one
 			if (request != null)

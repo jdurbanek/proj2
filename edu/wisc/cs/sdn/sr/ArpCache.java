@@ -171,6 +171,8 @@ public class ArpCache implements Runnable
 		arpPkt.setSenderHardwareAddress(
 				request.getIface().getMacAddress().toBytes());
 		arpPkt.setSenderProtocolAddress(request.getIface().getIpAddress());
+        arpPkt.setTargetHardwareAddress(
+                new byte[Ethernet.DATALAYER_ADDRESS_LENGTH]);
 		arpPkt.setTargetProtocolAddress(request.getIpAddress());
 		
 		// Stack headers
