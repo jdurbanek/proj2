@@ -49,6 +49,9 @@ public class RouteTableEntry
 	 */
 	public int getGatewayAddress()
 	{ return this.gatewayAddress; }
+
+    public void setGatewayAddress(int gatewayAddress)
+    { this.gatewayAddress = gatewayAddress; }
 	
 	/**
 	 * @return subnet mask 
@@ -62,12 +65,18 @@ public class RouteTableEntry
 	 */
 	public String getInterface()
 	{ return this.interfaceName; }
+
+    public void setInterface(String interfaceName)
+    { this.interfaceName = interfaceName; }
 	
 	public String toString()
 	{
 		String result = "";
 		result += Util.intToDottedDecimal(destinationAddress) + "\t";
-		result += Util.intToDottedDecimal(gatewayAddress) + "\t";
+        String gwString = Util.intToDottedDecimal(gatewayAddress);
+		result += gwString + "\t";
+        if (gwString.length() < 8)
+        { result += "\t"; }
 		result += Util.intToDottedDecimal(maskAddress) + "\t";
 		result += interfaceName;
 		return result;

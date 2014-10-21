@@ -120,6 +120,7 @@ public class VNSComm
 			case CommandHwEntry.HW_SUBNET:
 				break;
 			case CommandHwEntry.HW_MASK:
+				lastIface.setSubnetMask(ByteBuffer.wrap(hwEntry.value).getInt());
 				break;
 			case CommandHwEntry.HW_ETH_IP:
 				lastIface.setIpAddress(ByteBuffer.wrap(hwEntry.value).getInt());

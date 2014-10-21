@@ -38,7 +38,7 @@ public class UDP extends BasePacket {
          */
         UDP.decodeMap.put(DHCP_SERVER_PORT, DHCP.class);
         UDP.decodeMap.put(DHCP_CLIENT_PORT, DHCP.class); 
-        //UDP.decodeMap.put(RIP_PORT, RIP.class);
+        UDP.decodeMap.put(RIP_PORT, RIPv2.class);
     }
 
     protected short sourcePort;

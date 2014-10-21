@@ -83,7 +83,7 @@ public class Main
 		router.setVNSComm(vnsComm);
 		if (!vnsComm.connectToServer(port, server))
 		{ System.exit(1); }
-		
+
 		if (template != null)
 		{
 			// We've received the routing table now, so read it in
