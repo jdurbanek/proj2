@@ -280,6 +280,27 @@ public class IPv4 extends BasePacket {
     }
 
     /**
+     * @return the newly computed checksum
+     */
+    public short computeChecksum() {
+        short checksum = 0;
+        int accumulation = 0;
+        byte[] data = new byte[this.totalLength];
+        ByteBuffer bb = ByteBuffer.wrap(data);
+
+        for (int i = 0; i < this.headerLength * 2; ++i) {
+            accumulation += 0xffff & bb.getShort();
+        }
+
+        accumulation = ((accumulation >> 16) & 0xffff)
+                + (accumulation & 0xffff);
+        checksum = (short) (~accumulation & 0xffff);
+        bb.putShort(10, checksum);
+
+        return checksum;
+    }
+
+    /**
      * Serializes the packet. Will compute and set the following fields if they
      * are set to specific values at the time serialize is called:
      *      -checksum : 0
@@ -321,15 +342,7 @@ public class IPv4 extends BasePacket {
 
         // compute checksum if needed
         if (this.checksum == 0) {
-            bb.rewind();
-            int accumulation = 0;
-            for (int i = 0; i < this.headerLength * 2; ++i) {
-                accumulation += 0xffff & bb.getShort();
-            }
-            accumulation = ((accumulation >> 16) & 0xffff)
-                    + (accumulation & 0xffff);
-            this.checksum = (short) (~accumulation & 0xffff);
-            bb.putShort(10, this.checksum);
+            this.checksum = this.computeChecksum();
         }
         return data;
     }
