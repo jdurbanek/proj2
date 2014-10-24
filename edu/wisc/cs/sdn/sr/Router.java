@@ -354,10 +354,6 @@ public class Router
 
 						ICMP icmpPacket = (ICMP)ipPacket.getPayload();
 						Data icmpData = (Data)icmpPacket.getPayload();
-						// Send the ICMP ipPacket back to the host
-						String srcMac = inIface.getMacAddress().toString();
-						String destMac = etherPacket.getSourceMAC().toString();
-						int srcAddr = inIface.getIpAddress();
 						int destAddr = ipPacket.getSourceAddress();
 
 						this.sendIcmp(destAddr, (byte)0, (byte)0, icmpData);
@@ -379,17 +375,35 @@ public class Router
 				else
 				{
 					RouteTableEntry rteMatch;
-					int next;
 					Iface outIface;
 					ArpEntry arp;
+					int next;
 
-					rteMatch
-						= this.longestPrefixMatch
-							(ipPacket.getDestinationAddress());
+					System.out.println("BARFOO");
 
-					next = rteMatch.getDestinationAddress();
-					outIface = this.getInterface(rteMatch.getInterface());
-					arp = this.arpCache.lookup(next);
+					if(ipPacket.getTtl()-1 > 0)
+					{
+						rteMatch
+							= this.longestPrefixMatch
+								(ipPacket.getDestinationAddress());
+
+						next = rteMatch.getDestinationAddress();
+						outIface = this.getInterface(rteMatch.getInterface());
+						arp = this.arpCache.lookup(next);
+
+						System.out.println("TTL: "+(ipPacket.getTtl()-1));
+						ipPacket.setTtl((byte)(ipPacket.getTtl()-1));
+						ipPacket.resetChecksum();
+						ipPacket.serialize();
+					}
+					else
+					{
+						// TODO: Send ICMP error
+
+						System.out.println("TTL: 0");
+
+						return;
+					}
 
 					if(arp == null)
 					{
@@ -401,9 +415,6 @@ public class Router
 					{
 						String srcMac = outIface.getMacAddress().toString();
 						String destMac = arp.getMac().toString();
-
-						// TODO: Handle TTL = 0
-						//ipPacket.setTtl((byte)(ipPacket.getTtl()-1));
 
 						etherPacket.setSourceMACAddress(srcMac);
 						etherPacket.setDestinationMACAddress(destMac);
@@ -484,9 +495,7 @@ public class Router
 					packet.setSourceMACAddress(srcMac);
 					packet.setDestinationMACAddress(destMac);
 
-					// TODO: get correct inIface
 					System.out.println("FOOBAR: "+ipPacket.getTtl()+" "+ipPacket.getChecksum());
-					//this.handlePacket(packet, outIface);
 					this.sendPacket(packet, outIface);
 					System.out.println("Queued packet sent: "+packet.toString());
 				}
