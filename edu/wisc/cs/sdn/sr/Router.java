@@ -399,8 +399,22 @@ public class Router
 					else
 					{
 						// TODO: Send ICMP error
+						Data icmpData = new Data();
+						byte[] icmpDataBytes = new byte[32];
+						ByteBuffer bb = ByteBuffer.wrap(icmpDataBytes);
 
-						System.out.println("TTL: 0");
+						bb.putInt(0);
+						bb.put(ipPacket.serialize(), 0, 28);
+
+						icmpData.setData(icmpDataBytes);
+
+						// TODO:
+						this.sendIcmp(	ipPacket.getSourceAddress(),
+										(byte)11,
+										(byte)0,
+										icmpData );
+
+						System.out.println("TTL expired");
 
 						return;
 					}
