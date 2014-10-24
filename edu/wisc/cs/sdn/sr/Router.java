@@ -6,6 +6,7 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Iterator;
 import java.util.Map;
+import java.util.Random;
 
 import edu.wisc.cs.sdn.sr.vns.VNSComm;
 import edu.wisc.cs.sdn.sr.RouteTable;
@@ -16,6 +17,7 @@ import net.floodlightcontroller.packet.Ethernet;
 import net.floodlightcontroller.packet.ICMP;
 import net.floodlightcontroller.packet.IPv4;
 import net.floodlightcontroller.packet.UDP;
+import net.floodlightcontroller.packet.Data;
 import net.floodlightcontroller.util.MACAddress;
 
 /**
@@ -249,7 +251,7 @@ public class Router
 		return rteMatch;
 	}
 
-	public void sendIcmp(int destAddr, byte type, byte code)
+	public void sendIcmp(int destAddr, byte type, byte code, Data data)
 	{
 		RouteTableEntry rteMatch = this.longestPrefixMatch(destAddr);
 		Ethernet etherPacket = new Ethernet();
@@ -271,15 +273,23 @@ public class Router
 			// TODO: Generate checksum
 			icmpPacket.setIcmpType(type);
 			icmpPacket.setIcmpCode(code);
+			icmpPacket.setPayload(data);
 
 			// TODO: Correctly set TTL and options
 			ipPacket.setProtocol(IPv4.PROTOCOL_ICMP);
-			ipPacket.setTtl((byte)127);
+			ipPacket.setTtl((byte)64);
+			ipPacket.setFlags((byte)2);
+			// TODO: Somehow guarantee uniqueness
+			ipPacket.setIdentification((short)(new Random()).nextInt(Short.MAX_VALUE+1));
 			ipPacket.setSourceAddress(outIface.getIpAddress());
 			ipPacket.setDestinationAddress(destAddr);
 			ipPacket.setPayload(icmpPacket);
 			ipPacket.serialize(); // trigger checksum calculation
 
+			System.out.println("ICMPCHK: "+icmpPacket.serialize().length);
+			System.out.println("IPv4CHK: "+ipPacket.serialize().length);
+
+			etherPacket.setEtherType(Ethernet.TYPE_IPv4);
 			etherPacket.setPayload(ipPacket);
 
 			if(arp == null)
@@ -296,7 +306,7 @@ public class Router
 				etherPacket.setSourceMACAddress(srcMac);
 				etherPacket.setDestinationMACAddress(destMac);
 
-				System.out.println("SENDICMP: "+etherPacket.toString());
+				System.out.println("SENDICMPPKT: "+etherPacket.toString());
 				this.sendPacket(etherPacket, outIface);
 				System.out.println("Packet sent");
 			}
@@ -342,13 +352,15 @@ public class Router
 					{
 						System.out.println("ICMP");
 
+						ICMP icmpPacket = (ICMP)ipPacket.getPayload();
+						Data icmpData = (Data)icmpPacket.getPayload();
 						// Send the ICMP ipPacket back to the host
 						String srcMac = inIface.getMacAddress().toString();
 						String destMac = etherPacket.getSourceMAC().toString();
 						int srcAddr = inIface.getIpAddress();
 						int destAddr = ipPacket.getSourceAddress();
 
-						this.sendIcmp(destAddr, (byte)0, (byte)0);
+						this.sendIcmp(destAddr, (byte)0, (byte)0, icmpData);
 					}
 					else if(ipPacket.getProtocol() == IPv4.PROTOCOL_UDP)
 					{
@@ -405,8 +417,6 @@ public class Router
 			{
 				// TODO: handle errors
 				System.out.println("Checksum mismatch");
-				//System.out.println("OLD: "+ipPacket.getChecksum());
-				//System.out.println("NEW: "+ipPacket.computeChecksum());
 			}
 		}
 		else if(etherType == Ethernet.TYPE_ARP)
