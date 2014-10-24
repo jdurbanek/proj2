@@ -260,6 +260,8 @@ public class Router
 		Iface outIface;
 		int next;
 
+		System.out.println("SENDICMP");
+
 		if(rteMatch != null)
 		{
 			next = rteMatch.getDestinationAddress();
@@ -271,9 +273,12 @@ public class Router
 			icmpPacket.setIcmpCode(code);
 
 			// TODO: Correctly set TTL and options
+			ipPacket.setProtocol(IPv4.PROTOCOL_ICMP);
+			ipPacket.setTtl((byte)127);
 			ipPacket.setSourceAddress(outIface.getIpAddress());
 			ipPacket.setDestinationAddress(destAddr);
 			ipPacket.setPayload(icmpPacket);
+			ipPacket.serialize(); // trigger checksum calculation
 
 			etherPacket.setPayload(ipPacket);
 
@@ -291,6 +296,7 @@ public class Router
 				etherPacket.setSourceMACAddress(srcMac);
 				etherPacket.setDestinationMACAddress(destMac);
 
+				System.out.println("SENDICMP: "+etherPacket.toString());
 				this.sendPacket(etherPacket, outIface);
 				System.out.println("Packet sent");
 			}
@@ -317,12 +323,16 @@ public class Router
 		if(etherType == Ethernet.TYPE_IPv4)
 		{
 			IPv4 ipPacket = (IPv4)etherPacket.getPayload();
+			IPv4 newIpPacket = new IPv4();
+			byte[] ipPacketBytes = ipPacket.serialize();
 			int dest = ipPacket.getDestinationAddress();
+
+			newIpPacket.deserialize(ipPacketBytes, 0, ipPacketBytes.length);
 
 			System.out.println("IPv4");
 
-			// TODO: fix checksum
-			if(ipPacket.getChecksum() == ipPacket.computeChecksum() || true)
+			// TODO: Verify that checksum actually works
+			if(ipPacket.getChecksum() == newIpPacket.getChecksum())
 			{
 				System.out.println("BAR "+inIface.getIpAddress());
 
@@ -338,11 +348,7 @@ public class Router
 						int srcAddr = inIface.getIpAddress();
 						int destAddr = ipPacket.getSourceAddress();
 
-						etherPacket.setSourceMACAddress(srcMac);
-						etherPacket.setDestinationMACAddress(destMac);
-						ipPacket.setSourceAddress(srcAddr);
-						ipPacket.setDestinationAddress(destAddr);
-						this.sendPacket(etherPacket, inIface);
+						this.sendIcmp(destAddr, (byte)0, (byte)0);
 					}
 					else if(ipPacket.getProtocol() == IPv4.PROTOCOL_UDP)
 					{
@@ -385,13 +391,13 @@ public class Router
 						String destMac = arp.getMac().toString();
 
 						// TODO: Handle TTL = 0
-						ipPacket.setTtl((byte)(ipPacket.getTtl()-1));
+						//ipPacket.setTtl((byte)(ipPacket.getTtl()-1));
 
 						etherPacket.setSourceMACAddress(srcMac);
 						etherPacket.setDestinationMACAddress(destMac);
 						this.sendPacket(etherPacket, outIface);
 
-						System.out.println("Packet sent");
+						System.out.println("Packet sent: "+etherPacket.toString());
 					}
 				}
 			}
@@ -399,8 +405,8 @@ public class Router
 			{
 				// TODO: handle errors
 				System.out.println("Checksum mismatch");
-				System.out.println("OLD: "+ipPacket.getChecksum());
-				System.out.println("NEW: "+ipPacket.computeChecksum());
+				//System.out.println("OLD: "+ipPacket.getChecksum());
+				//System.out.println("NEW: "+ipPacket.computeChecksum());
 			}
 		}
 		else if(etherType == Ethernet.TYPE_ARP)
@@ -456,8 +462,23 @@ public class Router
 					/*********************************************************/
 					System.out.println("PQUEUE");
 
+					IPv4 ipPacket = (IPv4)packet.getPayload();
+					int destAddr = ipPacket.getDestinationAddress();
+					RouteTableEntry rteMatch = this.longestPrefixMatch(destAddr);
+					Iface outIface = this.getInterface(rteMatch.getInterface());
+					int next = rteMatch.getDestinationAddress();
+					ArpEntry arp = this.arpCache.lookup(next);
+					String srcMac = outIface.getMacAddress().toString();
+					String destMac = arp.getMac().toString();
+
+					packet.setSourceMACAddress(srcMac);
+					packet.setDestinationMACAddress(destMac);
+
 					// TODO: get correct inIface
-					this.handlePacket(packet, inIface);
+					System.out.println("FOOBAR: "+ipPacket.getTtl()+" "+ipPacket.getChecksum());
+					//this.handlePacket(packet, outIface);
+					this.sendPacket(packet, outIface);
+					System.out.println("Queued packet sent: "+packet.toString());
 				}
 			}
 			break;
