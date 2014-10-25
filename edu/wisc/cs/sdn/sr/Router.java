@@ -360,7 +360,7 @@ public class Router
 
 						if(udpPacket.getDestinationPort() == UDP.RIP_PORT)
 						{
-							// TODO: Handle RIP
+							this.rip.handlePacket(etherPacket, inIface);
 						}
 						else
 						{
