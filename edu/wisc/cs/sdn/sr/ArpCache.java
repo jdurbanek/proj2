@@ -1,9 +1,12 @@
 package edu.wisc.cs.sdn.sr;
 
+import java.nio.ByteBuffer;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 import net.floodlightcontroller.packet.ARP;
+import net.floodlightcontroller.packet.Data;
+import net.floodlightcontroller.packet.IPv4;
 import net.floodlightcontroller.packet.Ethernet;
 import net.floodlightcontroller.util.MACAddress;
 
@@ -94,7 +97,23 @@ public class ArpCache implements Runnable
 			
 			
 		    /*********************************************************/
-			
+			for (Ethernet packet : request.getWaitingPackets())
+			{
+				IPv4 ipPacket = (IPv4)packet.getPayload();
+				Data icmpData = new Data();
+				byte[] icmpDataBytes = new byte[32];
+				ByteBuffer bb = ByteBuffer.wrap(icmpDataBytes);
+
+				bb.putInt(0);
+				bb.put(ipPacket.serialize(), 0, 28);
+				icmpData.setData(icmpDataBytes);
+				
+				this.router.sendIcmp(	ipPacket.getSourceAddress(),
+										(byte)3,
+										(byte)1,
+										icmpData );
+			}
+
 			this.requests.remove(request.getIpAddress());
 		}
 		else
