@@ -275,7 +275,6 @@ public class Router
 			icmpPacket.setIcmpCode(code);
 			icmpPacket.setPayload(data);
 
-			// TODO: Correctly set TTL and options
 			ipPacket.setProtocol(IPv4.PROTOCOL_ICMP);
 			ipPacket.setTtl((byte)64);
 			ipPacket.setFlags((byte)2);
@@ -323,7 +322,6 @@ public class Router
 		System.out.println("*** -> Received ipPacket: " +
                 etherPacket.toString().replace("\n", "\n\t"));
 		
-		System.out.println("FOO");
 		/********************************************************************/
 		/* TODO: Handle ipPackets                                             */
 		
@@ -344,8 +342,6 @@ public class Router
 			// TODO: Verify that checksum actually works
 			if(ipPacket.getChecksum() == newIpPacket.getChecksum())
 			{
-				System.out.println("BAR "+inIface.getIpAddress());
-
 				if(dest == inIface.getIpAddress())
 				{
 					if(ipPacket.getProtocol() == IPv4.PROTOCOL_ICMP)
@@ -379,36 +375,54 @@ public class Router
 					ArpEntry arp;
 					int next;
 
-					System.out.println("BARFOO");
-
 					if(ipPacket.getTtl()-1 > 0)
 					{
 						rteMatch
 							= this.longestPrefixMatch
 								(ipPacket.getDestinationAddress());
 
-						next = rteMatch.getDestinationAddress();
-						outIface = this.getInterface(rteMatch.getInterface());
-						arp = this.arpCache.lookup(next);
+						if(rteMatch == null)
+						{
+							Data icmpData = new Data();
+							byte[] icmpDataBytes = new byte[32];
+							ByteBuffer bb = ByteBuffer.wrap(icmpDataBytes);
 
-						System.out.println("TTL: "+(ipPacket.getTtl()-1));
-						ipPacket.setTtl((byte)(ipPacket.getTtl()-1));
-						ipPacket.resetChecksum();
-						ipPacket.serialize();
+							bb.putInt(0);
+							bb.put(ipPacket.serialize(), 0, 28);
+							icmpData.setData(icmpDataBytes);
+
+							this.sendIcmp(	ipPacket.getSourceAddress(),
+											(byte)3,
+											(byte)0,
+											icmpData );
+
+							System.out.println("No route to host");
+
+							// TODO: Avoid early exit
+							return;
+						}
+						else
+						{
+							next = rteMatch.getDestinationAddress();
+							outIface = this.getInterface(rteMatch.getInterface());
+							arp = this.arpCache.lookup(next);
+
+							System.out.println("TTL: "+(ipPacket.getTtl()-1));
+							ipPacket.setTtl((byte)(ipPacket.getTtl()-1));
+							ipPacket.resetChecksum();
+							ipPacket.serialize();
+						}
 					}
 					else
 					{
-						// TODO: Send ICMP error
 						Data icmpData = new Data();
 						byte[] icmpDataBytes = new byte[32];
 						ByteBuffer bb = ByteBuffer.wrap(icmpDataBytes);
 
 						bb.putInt(0);
 						bb.put(ipPacket.serialize(), 0, 28);
-
 						icmpData.setData(icmpDataBytes);
 
-						// TODO:
 						this.sendIcmp(	ipPacket.getSourceAddress(),
 										(byte)11,
 										(byte)0,
@@ -416,6 +430,7 @@ public class Router
 
 						System.out.println("TTL expired");
 
+						// TODO: Avoid early exit
 						return;
 					}
 
@@ -509,7 +524,6 @@ public class Router
 					packet.setSourceMACAddress(srcMac);
 					packet.setDestinationMACAddress(destMac);
 
-					System.out.println("FOOBAR: "+ipPacket.getTtl()+" "+ipPacket.getChecksum());
 					this.sendPacket(packet, outIface);
 					System.out.println("Queued packet sent: "+packet.toString());
 				}
