@@ -364,8 +364,38 @@ public class Router
 						}
 						else
 						{
-							// TODO: Send ICMP type 3 code 3
+							Data icmpData = new Data();
+							byte[] icmpDataBytes = new byte[32];
+							ByteBuffer bb = ByteBuffer.wrap(icmpDataBytes);
+
+							bb.putInt(0);
+							bb.put(ipPacket.serialize(), 0, 28);
+							icmpData.setData(icmpDataBytes);
+
+							this.sendIcmp(	ipPacket.getSourceAddress(),
+											(byte)3,
+											(byte)3,
+											icmpData );
+
+							System.out.println("Non-520 UDP");
 						}
+					}
+					else if(ipPacket.getProtocol() == IPv4.PROTOCOL_TCP)
+					{
+						Data icmpData = new Data();
+						byte[] icmpDataBytes = new byte[32];
+						ByteBuffer bb = ByteBuffer.wrap(icmpDataBytes);
+
+						bb.putInt(0);
+						bb.put(ipPacket.serialize(), 0, 28);
+						icmpData.setData(icmpDataBytes);
+
+						this.sendIcmp(	ipPacket.getSourceAddress(),
+										(byte)3,
+										(byte)3,
+										icmpData );
+
+						System.out.println("Non-520 TCP");
 					}
 				}
 				else
