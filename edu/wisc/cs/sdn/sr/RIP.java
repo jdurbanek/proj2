@@ -5,6 +5,9 @@ import net.floodlightcontroller.packet.IPv4;
 import net.floodlightcontroller.packet.RIPv2;
 import net.floodlightcontroller.packet.UDP;
 
+import net.floodlightcontroller.packet.RIPv2Entry;
+import java.util.Timer;
+
 /**
   * Implements RIP. 
   * @author Anubhavnidhi Abhashkumar and Aaron Gember-Jacobson
@@ -55,6 +58,41 @@ public class RIP implements Runnable
         /* TODO: Add other initialization code as necessary                  */
 
         /*********************************************************************/
+        RIPv2 request = new RIPv2();
+        request.setCommand((byte)1);
+
+        for(Iface iface : this.router.getInterfaces().values())
+        {
+               //need to send a RIP requeset out all of the router's
+               //interfaces -- requests are different by dest Ip and de
+               //Ethernet and the command 1 is request 2 is response
+               //use the routetable of a router to add entries, then us
+               //build the entry for the RIPv2 packet
+               //metric set to 1 for all neighboring interfaces
+               //for(RouteTableEntry rtEntry : this.router.getRouteTabl
+               //{
+               //      RIPv2Entry newEntry = new
+               //      RIPv2Entry(rtEntry.getDestinationAddress(),
+               //                              rtEntry.getMaskAddress()
+               //
+               //      request.addEntry(newEntry);
+               //}
+               //at this point it should have req. info and now just ne
+               //it a UDP then ethernet packet in order to send.
+
+               UDP udpPacket = new UDP();
+               IPv4 ipPacket = new IPv4();
+               Ethernet etherPacket = new Ethernet();
+               ipPacket.setDestinationAddress(RIP_MULTICAST_IP);
+               ipPacket.setSourceAddress(iface.getIpAddress());        
+               udpPacket.setPayload(request);
+               ipPacket.setPayload(udpPacket);
+               etherPacket.setPayload(ipPacket);
+               etherPacket.setSourceMACAddress(iface.getMacAddress().toString());
+               etherPacket.setDestinationMACAddress(BROADCAST_MAC);
+
+               this.router.sendPacket(etherPacket, iface);
+        }
 	}
 
     /**
@@ -91,5 +129,47 @@ public class RIP implements Runnable
         /* TODO: Send period updates and time out route table entries        */
 
         /*********************************************************************/
+        while(true)
+        {
+               try
+               {
+               tasksThread.sleep(10);
+               }catch(Exception e){
+               System.out.println(e.getMessage());
+               }
+               
+               RIPv2 ripPacket = new RIPv2();
+               ripPacket.setCommand((byte)2);
+               
+               for(RouteTableEntry rtEntry : this.router.getRouteTable().getEntries())
+               {
+                       // metric is 0, change
+                       RIPv2Entry entry = new
+                       RIPv2Entry(rtEntry.getDestinationAddress(),
+                       rtEntry.getMaskAddress(), 0);
+                       
+                       ripPacket.addEntry(entry);      
+               }
+
+               for(Iface iface : this.router.getInterfaces().values())
+               {
+
+                       UDP udpPacket = new UDP();
+                       IPv4 ipPacket = new IPv4();
+                       Ethernet etherPacket = new Ethernet();
+
+                       ipPacket.setSourceAddress(iface.getIpAddress());
+                       udpPacket.setPayload(ripPacket);
+                       ipPacket.setPayload(udpPacket);
+                       etherPacket.setPayload(ipPacket);
+                       etherPacket.setSourceMACAddress(iface.getMacAddress().toString());
+                       etherPacket.setDestinationMACAddress(BROADCAST_MAC);
+
+                       this.router.sendPacket(etherPacket,iface);      
+
+
+               }
+
+        }
 	}
 }
