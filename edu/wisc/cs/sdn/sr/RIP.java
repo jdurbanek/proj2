@@ -130,7 +130,7 @@ public class RIP implements Runnable
         {
 			try
 			{
-				tasksThread.sleep(10000);
+				tasksThread.sleep(RIP.UPDATE_INTERVAL*1000);
 			}
 			catch(Exception e)
 			{
