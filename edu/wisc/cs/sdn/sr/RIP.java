@@ -9,9 +9,7 @@ import net.floodlightcontroller.packet.RIPv2Entry;
 import java.util.Timer;
 
 /**
-  * Implements RIP. 
-  * @author Anubhavnidhi Abhashkumar and Aaron Gember-Jacobson
-  */
+  * Implements RIP.  * @author Anubhavnidhi Abhashkumar and Aaron Gember-Jacobson */
 public class RIP implements Runnable
 {
     private static final int RIP_MULTICAST_IP = 0xE0000009;
@@ -58,40 +56,27 @@ public class RIP implements Runnable
         /* TODO: Add other initialization code as necessary                  */
 
         /*********************************************************************/
-        RIPv2 request = new RIPv2();
-        request.setCommand((byte)1);
+        RIPv2 ripPacket = new RIPv2();
 
-        for(Iface iface : this.router.getInterfaces().values())
+        ripPacket.setCommand((byte)1);
+
+		for(Iface iface : this.router.getInterfaces().values())
         {
-               //need to send a RIP requeset out all of the router's
-               //interfaces -- requests are different by dest Ip and de
-               //Ethernet and the command 1 is request 2 is response
-               //use the routetable of a router to add entries, then us
-               //build the entry for the RIPv2 packet
-               //metric set to 1 for all neighboring interfaces
-               //for(RouteTableEntry rtEntry : this.router.getRouteTabl
-               //{
-               //      RIPv2Entry newEntry = new
-               //      RIPv2Entry(rtEntry.getDestinationAddress(),
-               //                              rtEntry.getMaskAddress()
-               //
-               //      request.addEntry(newEntry);
-               //}
-               //at this point it should have req. info and now just ne
-               //it a UDP then ethernet packet in order to send.
+			UDP udpPacket = new UDP();
+			IPv4 ipPacket = new IPv4();
+			Ethernet etherPacket = new Ethernet();
 
-               UDP udpPacket = new UDP();
-               IPv4 ipPacket = new IPv4();
-               Ethernet etherPacket = new Ethernet();
-               ipPacket.setDestinationAddress(RIP_MULTICAST_IP);
-               ipPacket.setSourceAddress(iface.getIpAddress());        
-               udpPacket.setPayload(request);
-               ipPacket.setPayload(udpPacket);
-               etherPacket.setPayload(ipPacket);
-               etherPacket.setSourceMACAddress(iface.getMacAddress().toString());
-               etherPacket.setDestinationMACAddress(BROADCAST_MAC);
+			udpPacket.setPayload(ripPacket);
 
-               this.router.sendPacket(etherPacket, iface);
+			ipPacket.setDestinationAddress(RIP_MULTICAST_IP);
+			ipPacket.setSourceAddress(iface.getIpAddress());        
+			ipPacket.setPayload(udpPacket);
+
+			etherPacket.setSourceMACAddress(iface.getMacAddress().toString());
+			etherPacket.setDestinationMACAddress(BROADCAST_MAC);
+			etherPacket.setPayload(ipPacket);
+
+			this.router.sendPacket(etherPacket, iface);
         }
 	}
 
@@ -131,45 +116,47 @@ public class RIP implements Runnable
         /*********************************************************************/
         while(true)
         {
-               try
-               {
-               tasksThread.sleep(10);
-               }catch(Exception e){
-               System.out.println(e.getMessage());
-               }
-               
-               RIPv2 ripPacket = new RIPv2();
-               ripPacket.setCommand((byte)2);
-               
-               for(RouteTableEntry rtEntry : this.router.getRouteTable().getEntries())
-               {
-                       // metric is 0, change
-                       RIPv2Entry entry = new
-                       RIPv2Entry(rtEntry.getDestinationAddress(),
-                       rtEntry.getMaskAddress(), 0);
-                       
-                       ripPacket.addEntry(entry);      
-               }
+			try
+			{
+				tasksThread.sleep(10);
+			}
+			catch(Exception e)
+			{
+				System.out.println(e.getMessage());
+			}
 
-               for(Iface iface : this.router.getInterfaces().values())
-               {
+			RIPv2 ripPacket = new RIPv2();
+			ripPacket.setCommand((byte)2);
 
-                       UDP udpPacket = new UDP();
-                       IPv4 ipPacket = new IPv4();
-                       Ethernet etherPacket = new Ethernet();
+			for(RouteTableEntry rtEntry : this.router.getRouteTable().getEntries())
+			{
+				// metric is 0, change
+				RIPv2Entry entry
+				   = new RIPv2Entry(rtEntry.getDestinationAddress(),
 
-                       ipPacket.setSourceAddress(iface.getIpAddress());
-                       udpPacket.setPayload(ripPacket);
-                       ipPacket.setPayload(udpPacket);
-                       etherPacket.setPayload(ipPacket);
-                       etherPacket.setSourceMACAddress(iface.getMacAddress().toString());
-                       etherPacket.setDestinationMACAddress(BROADCAST_MAC);
+				rtEntry.getMaskAddress(), 0);
+				ripPacket.addEntry(entry);      
+			}
 
-                       this.router.sendPacket(etherPacket,iface);      
+			for(Iface iface : this.router.getInterfaces().values())
+			{
+				UDP udpPacket = new UDP();
+				IPv4 ipPacket = new IPv4();
+				Ethernet etherPacket = new Ethernet();
 
+				udpPacket.setPayload(ripPacket);
 
-               }
+				ipPacket.setSourceAddress(iface.getIpAddress());
+				ipPacket.setPayload(udpPacket);
 
+				etherPacket.setSourceMACAddress
+					(iface.getMacAddress().toString());
+
+				etherPacket.setDestinationMACAddress(BROADCAST_MAC);
+				etherPacket.setPayload(ipPacket);
+
+				this.router.sendPacket(etherPacket,iface);      
+			}
         }
 	}
 }

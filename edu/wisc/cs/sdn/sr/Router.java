@@ -270,7 +270,6 @@ public class Router
 			arp = this.arpCache.lookup(next);
 			outIface = this.getInterface(rteMatch.getInterface());
 
-			// TODO: Generate checksum
 			icmpPacket.setIcmpType(type);
 			icmpPacket.setIcmpCode(code);
 			icmpPacket.setPayload(data);
