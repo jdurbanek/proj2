@@ -7,6 +7,7 @@ import net.floodlightcontroller.packet.UDP;
 
 import net.floodlightcontroller.packet.RIPv2Entry;
 import java.util.Timer;
+import java.util.Random;
 
 /**
   * Implements RIP.  * @author Anubhavnidhi Abhashkumar and Aaron Gember-Jacobson */
@@ -66,12 +67,23 @@ public class RIP implements Runnable
 			IPv4 ipPacket = new IPv4();
 			Ethernet etherPacket = new Ethernet();
 
+			System.out.println("INITPKT");
+
+			udpPacket.setSourcePort(UDP.RIP_PORT);
+			udpPacket.setDestinationPort(UDP.RIP_PORT);
 			udpPacket.setPayload(ripPacket);
 
+			ipPacket.setProtocol(IPv4.PROTOCOL_UDP);
+			ipPacket.setTtl((byte)64);
+			ipPacket.setFlags((byte)2);
+			// TODO: Somehow guarantee uniqueness
+			ipPacket.setIdentification((short)(new Random()).nextInt(Short.MAX_VALUE+1));
 			ipPacket.setDestinationAddress(RIP_MULTICAST_IP);
 			ipPacket.setSourceAddress(iface.getIpAddress());        
 			ipPacket.setPayload(udpPacket);
+			ipPacket.serialize(); // trigger checksum calculation
 
+			etherPacket.setEtherType(Ethernet.TYPE_IPv4);
 			etherPacket.setSourceMACAddress(iface.getMacAddress().toString());
 			etherPacket.setDestinationMACAddress(BROADCAST_MAC);
 			etherPacket.setPayload(ipPacket);
@@ -114,11 +126,12 @@ public class RIP implements Runnable
         /* TODO: Send period updates and time out route table entries        */
 
         /*********************************************************************/
+		/*
         while(true)
         {
 			try
 			{
-				tasksThread.sleep(10);
+				tasksThread.sleep(10000);
 			}
 			catch(Exception e)
 			{
@@ -158,5 +171,6 @@ public class RIP implements Runnable
 				this.router.sendPacket(etherPacket,iface);      
 			}
         }
+		*/
 	}
 }
