@@ -126,7 +126,6 @@ public class RIP implements Runnable
         /* TODO: Send period updates and time out route table entries        */
 
         /*********************************************************************/
-		/*
         while(true)
         {
 			try
@@ -139,15 +138,17 @@ public class RIP implements Runnable
 			}
 
 			RIPv2 ripPacket = new RIPv2();
+
 			ripPacket.setCommand((byte)2);
 
 			for(RouteTableEntry rtEntry : this.router.getRouteTable().getEntries())
 			{
 				// metric is 0, change
 				RIPv2Entry entry
-				   = new RIPv2Entry(rtEntry.getDestinationAddress(),
+				   = new RIPv2Entry(	rtEntry.getDestinationAddress(),
+										rtEntry.getMaskAddress(),
+										0 );
 
-				rtEntry.getMaskAddress(), 0);
 				ripPacket.addEntry(entry);      
 			}
 
@@ -157,20 +158,29 @@ public class RIP implements Runnable
 				IPv4 ipPacket = new IPv4();
 				Ethernet etherPacket = new Ethernet();
 
+				System.out.println("UPDATEPKT");
+
+				udpPacket.setSourcePort(UDP.RIP_PORT);
+				udpPacket.setDestinationPort(UDP.RIP_PORT);
 				udpPacket.setPayload(ripPacket);
 
-				ipPacket.setSourceAddress(iface.getIpAddress());
+				ipPacket.setProtocol(IPv4.PROTOCOL_UDP);
+				ipPacket.setTtl((byte)64);
+				ipPacket.setFlags((byte)2);
+				// TODO: Somehow guarantee uniqueness
+				ipPacket.setIdentification((short)(new Random()).nextInt(Short.MAX_VALUE+1));
+				ipPacket.setDestinationAddress(RIP_MULTICAST_IP);
+				ipPacket.setSourceAddress(iface.getIpAddress());        
 				ipPacket.setPayload(udpPacket);
+				ipPacket.serialize(); // trigger checksum calculation
 
-				etherPacket.setSourceMACAddress
-					(iface.getMacAddress().toString());
-
+				etherPacket.setEtherType(Ethernet.TYPE_IPv4);
+				etherPacket.setSourceMACAddress(iface.getMacAddress().toString());
 				etherPacket.setDestinationMACAddress(BROADCAST_MAC);
 				etherPacket.setPayload(ipPacket);
 
 				this.router.sendPacket(etherPacket,iface);      
 			}
         }
-		*/
 	}
 }
