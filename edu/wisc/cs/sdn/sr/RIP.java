@@ -114,25 +114,45 @@ public class RIP implements Runnable
         /* TODO: Handle RIP packet                                           */
 
         /*********************************************************************/
+		//response
 		if(ripPacket.getCommand() == ((byte)2))
-		{//repsonse
-			for(RouteTable rt : this.router.getRouteTable().getEntries())
+		{
+			for(RIPv2Entry entry : ripPacket.getEntries())
 			{
-				for(RIPv2Entry entry : ripPacket.getEntries())
+				//check to see if it is already in the routetable if it
+				//isn't add it, if is update
+				RouteTable routeTable;
+				RouteTableEntry rte;
+				
+				routeTable = this.router.getRouteTable();
+				rte = routeTable.findEntry(	entry.getAddress(),
+											entry.getSubnetMask() );
+
+				if(rte == null)
 				{
-					//check to see if it is already in the routetable if it
-					//isn't add it, if is update
+					routeTable.addEntry(	entry.getAddress(),
+											entry.getNextHopAddress(),
+											entry.getSubnetMask(),
+											inIface.getName() );
 				}
-
+				else
+				{
+					routeTable.updateEntry(	entry.getAddress(),
+											entry.getNextHopAddress(),
+											entry.getSubnetMask(),
+											inIface.getName() );
+				}
 			}
-		
-
-
-		}else if(ripPacket.getCommand() == ((byte)1)){
+		}
 		//request
+		else if(ripPacket.getCommand() == ((byte)1))
+		{
 			RIPv2 responsePacket = new RIPv2();
+
 			responsePacket.setCommand((byte)2);
-			for(RouteTableEntry rtEntry : this.router.getRouteTable().getEntries())
+
+			for(	RouteTableEntry rtEntry:
+					this.router.getRouteTable().getEntries() )
 			{
 				//TODO metric is 0, change
 				RIPv2Entry entry
@@ -168,9 +188,9 @@ public class RIP implements Runnable
 			etherResponse.setDestinationMACAddress(etherPacket.getSourceMACAddress().toString());
 			etherResponse.setPayload(ipResponse);
 
-			this.router.sendPacket(etherResponse,inIface);  
+			this.router.sendPacket(etherResponse, inIface);  
 		}
-}
+	}
     
     /**
       * Perform periodic RIP tasks.
@@ -197,7 +217,8 @@ public class RIP implements Runnable
 
 			ripPacket.setCommand((byte)2);
 
-			for(RouteTableEntry rtEntry : this.router.getRouteTable().getEntries())
+			for(	RouteTableEntry rtEntry:
+					this.router.getRouteTable().getEntries() )
 			{
 				//TODO metric is not always 0, change
 				RIPv2Entry entry
