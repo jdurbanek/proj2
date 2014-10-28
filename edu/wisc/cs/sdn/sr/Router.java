@@ -342,7 +342,8 @@ public class Router
 			// TODO: Verify that checksum actually works
 			if(ipPacket.getChecksum() == newIpPacket.getChecksum())
 			{
-				if(dest == inIface.getIpAddress())
+				if(dest == inIface.getIpAddress()
+				|| dest == RIP.RIP_MULTICAST_IP) // RIP multicast
 				{
 					if(ipPacket.getProtocol() == IPv4.PROTOCOL_ICMP)
 					{
@@ -358,8 +359,11 @@ public class Router
 					{
 						UDP udpPacket = (UDP)ipPacket.getPayload();
 
+						System.out.println("UDP");
+
 						if(udpPacket.getDestinationPort() == UDP.RIP_PORT)
 						{
+							System.out.println("RIP");
 							this.rip.handlePacket(etherPacket, inIface);
 						}
 						else

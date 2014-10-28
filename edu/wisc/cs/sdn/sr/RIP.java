@@ -13,7 +13,7 @@ import java.util.Random;
   * Implements RIP.  * @author Anubhavnidhi Abhashkumar and Aaron Gember-Jacobson */
 public class RIP implements Runnable
 {
-    private static final int RIP_MULTICAST_IP = 0xE0000009;
+    public static final int RIP_MULTICAST_IP = 0xE0000009;
     private static final byte[] BROADCAST_MAC = {(byte)0xFF, (byte)0xFF, 
             (byte)0xFF, (byte)0xFF, (byte)0xFF, (byte)0xFF};
     
@@ -114,6 +114,8 @@ public class RIP implements Runnable
         /* TODO: Handle RIP packet                                           */
 
         /*********************************************************************/
+		System.out.println("RECVPKT");
+
 		//response
 		if(ripPacket.getCommand() == ((byte)2))
 		{
@@ -142,6 +144,9 @@ public class RIP implements Runnable
 											entry.getSubnetMask(),
 											inIface.getName() );
 				}
+
+				System.out.println(	"Routing table updated: \n"+
+									routeTable.toString() );
 			}
 		}
 		//request
@@ -185,7 +190,7 @@ public class RIP implements Runnable
 			etherResponse.setEtherType(Ethernet.TYPE_IPv4);
 			//inIface mac address as source?
 			etherResponse.setSourceMACAddress(inIface.getMacAddress().toString());
-			etherResponse.setDestinationMACAddress(etherPacket.getSourceMACAddress().toString());
+			etherResponse.setDestinationMACAddress(etherPacket.getSourceMAC().toString());
 			etherResponse.setPayload(ipResponse);
 
 			this.router.sendPacket(etherResponse, inIface);  
