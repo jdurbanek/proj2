@@ -19,7 +19,7 @@ public class RouteTableEntry
 	 * the destination or gateway */
 	private String interfaceName;
 	
-	//private int timer = 0;
+	private long timestamp;
     private int distance;	
 	/**
 	 * Create a new route table entry.
@@ -37,6 +37,8 @@ public class RouteTableEntry
 		this.maskAddress = maskAddress;
 		this.interfaceName = ifaceName;
 		this.distance = 16;
+
+		this.updateTimestamp();
 	}
 	
 	/**
@@ -62,6 +64,16 @@ public class RouteTableEntry
 	
 	public void setDistance(int distance)
 	{this.distance = distance; }
+
+	public long getTimestamp()
+	{ return this.timestamp; }
+
+	public void setTimestamp(long timestamp)
+	{ this.timestamp = timestamp; }
+
+	public void updateTimestamp()
+	{ this.timestamp = System.currentTimeMillis()/1000L; }
+
 	/**
 	 * @return subnet mask 
 	 */

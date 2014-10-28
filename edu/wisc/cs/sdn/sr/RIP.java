@@ -8,7 +8,8 @@ import net.floodlightcontroller.packet.UDP;
 import net.floodlightcontroller.packet.RIPv2Entry;
 import java.util.Timer;
 import java.util.Random;
-
+import java.util.List;
+import java.util.LinkedList;
 /**
   * Implements RIP.  * @author Anubhavnidhi Abhashkumar and Aaron Gember-Jacobson */
 public class RIP implements Runnable
@@ -131,6 +132,7 @@ public class RIP implements Runnable
 		//response
 		if(ripPacket.getCommand() == ((byte)2))
 		{
+			boolean updated = false;
 			for(RIPv2Entry entry : ripPacket.getEntries())
 			{
 				//check to see if it is already in the routetable if it
@@ -148,18 +150,38 @@ public class RIP implements Runnable
 											entry.getNextHopAddress(),
 											entry.getSubnetMask(),
 											inIface.getName() );
+					updated = true;
 				}
 				else
 				{
-					routeTable.updateEntry(	entry.getAddress(),
+				 	if(rte.getDestinationAddress() == entry.getAddress() &&
+					rte.getDistance() > entry.getMetric())
+					{
+										
+						routeTable.updateEntry(	entry.getAddress(),
 											entry.getNextHopAddress(),
 											entry.getSubnetMask(),
 											inIface.getName() );
+						updated = true;
+					}else if(rte.getDestinationAddress() == entry.getAddress() &&
+					rte.getDistance() == entry.getMetric())
+					{
+						rte.updateTimestamp();
+					}
+					
+			
+				
 				}
 
 				System.out.println(	"Routing table updated: \n"+
 									routeTable.toString() );
 			}
+			
+				if(updated)
+				{
+					this.sendNewPacket((byte)2);
+				}
+
 		}
 		//request
 		else if(ripPacket.getCommand() == ((byte)1))
@@ -175,7 +197,7 @@ public class RIP implements Runnable
 				RIPv2Entry entry
 				   = new RIPv2Entry(	rtEntry.getDestinationAddress(),
 										rtEntry.getMaskAddress(),
-										0 );
+										rtEntry.getDistance() + 1);
 
 				responsePacket.addEntry(entry);      
 			}
@@ -208,7 +230,56 @@ public class RIP implements Runnable
 			this.router.sendPacket(etherResponse, inIface);  
 		}
 	}
-    
+    public void sendNewPacket(byte command)
+	{
+
+			RIPv2 ripPacket = new RIPv2();
+
+			ripPacket.setCommand(command);
+
+			for(	RouteTableEntry rtEntry:
+					this.router.getRouteTable().getEntries() )
+			{
+				//TODO metric is not always 0, change
+				RIPv2Entry entry
+				   = new RIPv2Entry(	rtEntry.getDestinationAddress(),
+										rtEntry.getMaskAddress(),
+										rtEntry.getDistance() + 1);
+
+				ripPacket.addEntry(entry);      
+			}
+
+			for(Iface iface : this.router.getInterfaces().values())
+			{
+				UDP udpPacket = new UDP();
+				IPv4 ipPacket = new IPv4();
+				Ethernet etherPacket = new Ethernet();
+
+				System.out.println("UPDATEPKT");
+
+				udpPacket.setSourcePort(UDP.RIP_PORT);
+				udpPacket.setDestinationPort(UDP.RIP_PORT);
+				udpPacket.setPayload(ripPacket);
+
+				ipPacket.setProtocol(IPv4.PROTOCOL_UDP);
+				ipPacket.setTtl((byte)64);
+				ipPacket.setFlags((byte)2);
+				// TODO: Somehow guarantee uniqueness
+				ipPacket.setIdentification((short)(new Random()).nextInt(Short.MAX_VALUE+1));
+				ipPacket.setDestinationAddress(RIP_MULTICAST_IP);
+				ipPacket.setSourceAddress(iface.getIpAddress());        
+				ipPacket.setPayload(udpPacket);
+				ipPacket.serialize(); // trigger checksum calculation
+
+				etherPacket.setEtherType(Ethernet.TYPE_IPv4);
+				etherPacket.setSourceMACAddress(iface.getMacAddress().toString());
+				etherPacket.setDestinationMACAddress(BROADCAST_MAC);
+				etherPacket.setPayload(ipPacket);
+
+				this.router.sendPacket(etherPacket,iface);      
+
+			}
+	}
     /**
       * Perform periodic RIP tasks.
       */
@@ -229,7 +300,22 @@ public class RIP implements Runnable
 			{
 				System.out.println(e.getMessage());
 			}
+			List<RouteTableEntry> rteToRemove = new LinkedList<RouteTableEntry>();
+			for(RouteTableEntry rte : this.router.getRouteTable().getEntries())
+			{
+				if((System.currentTimeMillis()/1000L - rte.getTimestamp() >=
+				TIMEOUT))
+					{
+						rteToRemove.add(rte);
+					}
+			}
+			
+			for(RouteTableEntry rte : rteToRemove){
 
+				this.router.getRouteTable().removeEntry(rte.getDestinationAddress(),
+				rte.getMaskAddress());
+			
+			}
 			RIPv2 ripPacket = new RIPv2();
 
 			ripPacket.setCommand((byte)2);
@@ -241,7 +327,7 @@ public class RIP implements Runnable
 				RIPv2Entry entry
 				   = new RIPv2Entry(	rtEntry.getDestinationAddress(),
 										rtEntry.getMaskAddress(),
-										0 );
+										rtEntry.getDistance() + 1);
 
 				ripPacket.addEntry(entry);      
 			}
