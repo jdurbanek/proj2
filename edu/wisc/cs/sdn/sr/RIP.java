@@ -61,6 +61,18 @@ public class RIP implements Runnable
 
         ripPacket.setCommand((byte)1);
 
+		for(	RouteTableEntry rtEntry:
+					this.router.getRouteTable().getEntries() )
+		{
+				//TODO metric is not always 0, change
+				RIPv2Entry entry
+				   = new RIPv2Entry(	rtEntry.getDestinationAddress(),
+										rtEntry.getMaskAddress(),
+										rtEntry.getDistance() + 1 );
+
+				ripPacket.addEntry(entry);      
+		}
+
 		for(Iface iface : this.router.getInterfaces().values())
         {
 			UDP udpPacket = new UDP();

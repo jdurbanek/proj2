@@ -20,7 +20,7 @@ public class RouteTableEntry
 	private String interfaceName;
 	
 	//private int timer = 0;
-	
+    private int distance;	
 	/**
 	 * Create a new route table entry.
 	 * @param destinationAddress destination IP address
@@ -36,6 +36,7 @@ public class RouteTableEntry
 		this.gatewayAddress = gatewayAddress;
 		this.maskAddress = maskAddress;
 		this.interfaceName = ifaceName;
+		this.distance = 16;
 	}
 	
 	/**
@@ -53,6 +54,14 @@ public class RouteTableEntry
     public void setGatewayAddress(int gatewayAddress)
     { this.gatewayAddress = gatewayAddress; }
 	
+	/**
+	* @return distance 
+	*/
+	public int  getDistance()
+	{return this.distance; }
+	
+	public void setDistance(int distance)
+	{this.distance = distance; }
 	/**
 	 * @return subnet mask 
 	 */
