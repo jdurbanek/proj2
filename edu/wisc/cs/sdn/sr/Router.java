@@ -330,11 +330,12 @@ public class Router
 		if(etherType == Ethernet.TYPE_IPv4)
 		{
 			IPv4 ipPacket = (IPv4)etherPacket.getPayload();
-			IPv4 newIpPacket = new IPv4();
-			byte[] ipPacketBytes = ipPacket.serialize();
+			IPv4 newIpPacket = (IPv4)ipPacket.clone();
 			int dest = ipPacket.getDestinationAddress();
 
-			newIpPacket.deserialize(ipPacketBytes, 0, ipPacketBytes.length);
+			// Recalculate checksum
+			newIpPacket.resetChecksum();
+			newIpPacket.serialize();
 
 			System.out.println("IPv4");
 
