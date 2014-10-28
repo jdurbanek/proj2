@@ -114,7 +114,63 @@ public class RIP implements Runnable
         /* TODO: Handle RIP packet                                           */
 
         /*********************************************************************/
-	}
+		if(ripPacket.getCommand() == ((byte)2))
+		{//repsonse
+			for(RouteTable rt : this.router.getRouteTable().getEntries())
+			{
+				for(RIPv2Entry entry : ripPacket.getEntries())
+				{
+					//check to see if it is already in the routetable if it
+					//isn't add it, if is update
+				}
+
+			}
+		
+
+
+		}else if(ripPacket.getCommand() == ((byte)1)){
+		//request
+			RIPv2 responsePacket = new RIPv2();
+			responsePacket.setCommand((byte)2);
+			for(RouteTableEntry rtEntry : this.router.getRouteTable().getEntries())
+			{
+				//TODO metric is 0, change
+				RIPv2Entry entry
+				   = new RIPv2Entry(	rtEntry.getDestinationAddress(),
+										rtEntry.getMaskAddress(),
+										0 );
+
+				responsePacket.addEntry(entry);      
+			}
+
+			UDP udpResponse = new UDP();
+			IPv4 ipResponse = new IPv4();
+			Ethernet etherResponse = new Ethernet();
+
+			udpResponse.setSourcePort(UDP.RIP_PORT);
+			udpResponse.setDestinationPort(UDP.RIP_PORT);
+			udpResponse.setPayload(responsePacket);
+
+			ipResponse.setProtocol(IPv4.PROTOCOL_UDP);
+			ipResponse.setTtl((byte)64);
+			ipResponse.setFlags((byte)2);
+			//do we need unique number for a reponse?
+			ipResponse.setIdentification((short)(new Random()).nextInt(Short.MAX_VALUE+1));
+			ipResponse.setDestinationAddress(ipPacket.getSourceAddress());
+			//correct source?
+			ipResponse.setSourceAddress(inIface.getIpAddress());        
+			ipResponse.setPayload(udpResponse);
+			ipResponse.serialize(); // trigger checksum calculation
+
+			etherResponse.setEtherType(Ethernet.TYPE_IPv4);
+			//inIface mac address as source?
+			etherResponse.setSourceMACAddress(inIface.getMacAddress().toString());
+			etherResponse.setDestinationMACAddress(etherPacket.getSourceMACAddress().toString());
+			etherResponse.setPayload(ipResponse);
+
+			this.router.sendPacket(etherResponse,inIface);  
+		}
+}
     
     /**
       * Perform periodic RIP tasks.
@@ -143,7 +199,7 @@ public class RIP implements Runnable
 
 			for(RouteTableEntry rtEntry : this.router.getRouteTable().getEntries())
 			{
-				// metric is 0, change
+				//TODO metric is not always 0, change
 				RIPv2Entry entry
 				   = new RIPv2Entry(	rtEntry.getDestinationAddress(),
 										rtEntry.getMaskAddress(),
