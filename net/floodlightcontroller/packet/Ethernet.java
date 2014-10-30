@@ -426,6 +426,7 @@ public class Ethernet extends BasePacket {
             sb.append("\nnw_proto: ");
             sb.append(p.getProtocol());
 
+            pkt = (IPacket)p.getPayload();
             if (pkt instanceof TCP) {
                 sb.append("\ntp_src: ");
                 sb.append(((TCP) pkt).getSourcePort());
