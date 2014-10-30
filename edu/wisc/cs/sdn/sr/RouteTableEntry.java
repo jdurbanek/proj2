@@ -20,7 +20,7 @@ public class RouteTableEntry
 	private String interfaceName;
 	
 	private long timestamp;
-    private int distance;	
+    private int metric;	
 	/**
 	 * Create a new route table entry.
 	 * @param destinationAddress destination IP address
@@ -30,15 +30,21 @@ public class RouteTableEntry
 	 *        be sent to reach the destination or gateway
 	 */
 	public RouteTableEntry(int destinationAddress, int gatewayAddress, 
-			int maskAddress, String ifaceName)
+			int maskAddress, String ifaceName, int metric)
 	{
 		this.destinationAddress = destinationAddress;
 		this.gatewayAddress = gatewayAddress;
 		this.maskAddress = maskAddress;
 		this.interfaceName = ifaceName;
-		this.distance = 0;
+		this.metric = metric;
 
 		this.updateTimestamp();
+	}
+	
+	public RouteTableEntry(int destinationAddress, int gatewayAddress, 
+			int maskAddress, String ifaceName)
+	{
+		this(destinationAddress, gatewayAddress, maskAddress, ifaceName, 0);
 	}
 	
 	/**
@@ -57,13 +63,13 @@ public class RouteTableEntry
     { this.gatewayAddress = gatewayAddress; }
 	
 	/**
-	* @return distance 
+	* @return metric 
 	*/
-	public int  getDistance()
-	{return this.distance; }
+	public int  getMetric()
+	{return this.metric; }
 	
-	public void setDistance(int distance)
-	{this.distance = distance; }
+	public void setMetric(int metric)
+	{this.metric = metric; }
 
 	public long getTimestamp()
 	{ return this.timestamp; }
@@ -99,7 +105,8 @@ public class RouteTableEntry
         if (gwString.length() < 8)
         { result += "\t"; }
 		result += Util.intToDottedDecimal(maskAddress) + "\t";
-		result += interfaceName;
+		result += interfaceName + "\t";
+		result += metric;
 		return result;
 	}
 }

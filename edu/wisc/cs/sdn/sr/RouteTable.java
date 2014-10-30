@@ -138,6 +138,15 @@ public class RouteTable
             this.entries.add(entry);
         }
 	}
+
+	public void addEntry(int dstIp, int gwIp, int maskIp, String iface, int metric)
+	{
+		RouteTableEntry entry = new RouteTableEntry(dstIp, gwIp, maskIp, iface, metric);
+        synchronized(this.entries)
+        { 
+            this.entries.add(entry);
+        }
+	}
 	
 	/**
 	 * Remove an entry from the route table.
@@ -175,6 +184,21 @@ public class RouteTable
             { return false; }
             entry.setGatewayAddress(gwIp);
             entry.setInterface(ifaceName);
+        }
+        return true;
+	}
+
+	public boolean updateEntry(int dstIp, int maskIp, int gwIp, 
+            String ifaceName, int metric)
+	{
+        synchronized(this.entries)
+        {
+            RouteTableEntry entry = this.findEntry(dstIp, maskIp);
+            if (null == entry)
+            { return false; }
+            entry.setGatewayAddress(gwIp);
+            entry.setInterface(ifaceName);
+            entry.setMetric(metric);
         }
         return true;
 	}
@@ -225,7 +249,7 @@ public class RouteTable
             if (0 == this.entries.size())
             { return " * warning* Routing table empty"; }
             
-            String result = "Destination\tGateway\t\tMask\t\tIface\n";
+            String result = "Destination\tGateway\t\tMask\t\tIface\tMetric\n";
             for (RouteTableEntry entry : entries)
             { result += entry.toString()+"\n"; }
 		    return result;

@@ -114,7 +114,9 @@ public class RIP implements Runnable
 						routeTable.addEntry(	entry.getAddress(),
 												entry.getNextHopAddress(),
 												entry.getSubnetMask(),
-												inIface.getName() );
+												inIface.getName(),
+												entry.getMetric() );
+
 						updated = true;
 					}
 					else
@@ -122,17 +124,18 @@ public class RIP implements Runnable
 						// Update routing table if received route has smaller
 						// number of hops
 						if(rte.getDestinationAddress() == entry.getAddress()
-						&& rte.getDistance() > entry.getMetric())
+						&& rte.getMetric() > entry.getMetric())
 						{
 							routeTable.updateEntry(	entry.getAddress(),
 													entry.getNextHopAddress(),
 													entry.getSubnetMask(),
-													inIface.getName() );
+													inIface.getName(),
+													entry.getMetric() );
 
 							updated = true;
 						}
 						else if(rte.getDestinationAddress() == entry.getAddress()
-						&& rte.getDistance() == entry.getMetric())
+						&& rte.getMetric() == entry.getMetric())
 						{
 							rte.updateTimestamp();
 						}
@@ -206,7 +209,7 @@ public class RIP implements Runnable
 					RIPv2Entry entry
 					   = new RIPv2Entry(	rtEntry.getDestinationAddress(),
 											rtEntry.getMaskAddress(),
-											rtEntry.getDistance() + 1);
+											rtEntry.getMetric() + 1);
 
 					entry.setNextHopAddress(iface.getIpAddress());
 
