@@ -284,8 +284,9 @@ public class RIP implements Runnable
 
 			for(RouteTableEntry rte : this.router.getRouteTable().getEntries())
 			{
-				if((System.currentTimeMillis()/1000L
-				- rte.getTimestamp() >= TIMEOUT))
+				if(rte.getGatewayAddress() != 0
+				&& System.currentTimeMillis()/1000L-rte.getTimestamp()
+				>= TIMEOUT)
 				{
 					rteToRemove.add(rte);
 				}
