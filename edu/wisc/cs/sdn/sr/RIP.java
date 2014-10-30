@@ -19,7 +19,7 @@ public class RIP implements Runnable
     private static final byte[] BROADCAST_MAC = {(byte)0xFF, (byte)0xFF, 
             (byte)0xFF, (byte)0xFF, (byte)0xFF, (byte)0xFF};
     
-    public static final int MAX_HOP = 16;
+    public static final int MAX_HOPS = 16;
 
     /** Send RIP updates every 10 seconds */
     private static final int UPDATE_INTERVAL = 10;
@@ -106,32 +106,36 @@ public class RIP implements Runnable
 				rte = routeTable.findEntry(	entry.getAddress(),
 											entry.getSubnetMask() );
 
-				if(rte == null)
+				// Ignore routes with too many hops
+				if(entry.getMetric()+1 <= MAX_HOPS)
 				{
-					routeTable.addEntry(	entry.getAddress(),
-											entry.getNextHopAddress(),
-											entry.getSubnetMask(),
-											inIface.getName() );
-					updated = true;
-				}
-				else
-				{
-					// Update routing table if received route has smaller number
-					// of hops
-				 	if(rte.getDestinationAddress() == entry.getAddress()
-					&& rte.getDistance() > entry.getMetric())
+					if(rte == null)
 					{
-						routeTable.updateEntry(	entry.getAddress(),
+						routeTable.addEntry(	entry.getAddress(),
 												entry.getNextHopAddress(),
 												entry.getSubnetMask(),
 												inIface.getName() );
-
 						updated = true;
 					}
-					else if(rte.getDestinationAddress() == entry.getAddress()
-					&& rte.getDistance() == entry.getMetric())
+					else
 					{
-						rte.updateTimestamp();
+						// Update routing table if received route has smaller
+						// number of hops
+						if(rte.getDestinationAddress() == entry.getAddress()
+						&& rte.getDistance() > entry.getMetric())
+						{
+							routeTable.updateEntry(	entry.getAddress(),
+													entry.getNextHopAddress(),
+													entry.getSubnetMask(),
+													inIface.getName() );
+
+							updated = true;
+						}
+						else if(rte.getDestinationAddress() == entry.getAddress()
+						&& rte.getDistance() == entry.getMetric())
+						{
+							rte.updateTimestamp();
+						}
 					}
 				}
 
@@ -203,6 +207,8 @@ public class RIP implements Runnable
 					   = new RIPv2Entry(	rtEntry.getDestinationAddress(),
 											rtEntry.getMaskAddress(),
 											rtEntry.getDistance() + 1);
+
+					entry.setNextHopAddress(iface.getIpAddress());
 
 					ripPacket.addEntry(entry);      
 				}
