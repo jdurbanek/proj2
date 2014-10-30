@@ -342,6 +342,9 @@ public class Router
 			// TODO: Verify that checksum actually works
 			if(ipPacket.getChecksum() == newIpPacket.getChecksum())
 			{
+				arpCache.insert(	etherPacket.getSourceMAC(),
+									ipPacket.getSourceAddress() );
+
 				if(dest == inIface.getIpAddress()
 				|| dest == RIP.RIP_MULTICAST_IP) // RIP multicast
 				{

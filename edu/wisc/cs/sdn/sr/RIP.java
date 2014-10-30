@@ -124,6 +124,7 @@ public class RIP implements Runnable
 						// Update routing table if received route has smaller
 						// number of hops
 						if(rte.getDestinationAddress() == entry.getAddress()
+						&& rte.getMaskAddress() == entry.getSubnetMask()
 						&& rte.getMetric() > entry.getMetric())
 						{
 							routeTable.updateEntry(	entry.getAddress(),
@@ -135,6 +136,7 @@ public class RIP implements Runnable
 							updated = true;
 						}
 						else if(rte.getDestinationAddress() == entry.getAddress()
+						&& rte.getMaskAddress() == entry.getSubnetMask()
 						&& rte.getMetric() == entry.getMetric())
 						{
 							rte.updateTimestamp();
