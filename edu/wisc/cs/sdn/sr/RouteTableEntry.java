@@ -36,7 +36,7 @@ public class RouteTableEntry
 		this.gatewayAddress = gatewayAddress;
 		this.maskAddress = maskAddress;
 		this.interfaceName = ifaceName;
-		this.distance = 16;
+		this.distance = 0;
 
 		this.updateTimestamp();
 	}

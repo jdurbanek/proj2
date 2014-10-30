@@ -3,13 +3,14 @@ package edu.wisc.cs.sdn.sr;
 import net.floodlightcontroller.packet.Ethernet;
 import net.floodlightcontroller.packet.IPv4;
 import net.floodlightcontroller.packet.RIPv2;
+import net.floodlightcontroller.packet.RIPv2Entry;
 import net.floodlightcontroller.packet.UDP;
 
-import net.floodlightcontroller.packet.RIPv2Entry;
 import java.util.Timer;
 import java.util.Random;
 import java.util.List;
 import java.util.LinkedList;
+import java.util.Iterator;
 /**
   * Implements RIP.  * @author Anubhavnidhi Abhashkumar and Aaron Gember-Jacobson */
 public class RIP implements Runnable
@@ -18,6 +19,8 @@ public class RIP implements Runnable
     private static final byte[] BROADCAST_MAC = {(byte)0xFF, (byte)0xFF, 
             (byte)0xFF, (byte)0xFF, (byte)0xFF, (byte)0xFF};
     
+    public static final int MAX_HOP = 16;
+
     /** Send RIP updates every 10 seconds */
     private static final int UPDATE_INTERVAL = 10;
 
@@ -58,51 +61,9 @@ public class RIP implements Runnable
         /* TODO: Add other initialization code as necessary                  */
 
         /*********************************************************************/
-        RIPv2 ripPacket = new RIPv2();
 
-        ripPacket.setCommand((byte)1);
-
-		for(	RouteTableEntry rtEntry:
-					this.router.getRouteTable().getEntries() )
-		{
-				//TODO metric is not always 0, change
-				RIPv2Entry entry
-				   = new RIPv2Entry(	rtEntry.getDestinationAddress(),
-										rtEntry.getMaskAddress(),
-										rtEntry.getDistance() + 1 );
-
-				ripPacket.addEntry(entry);      
-		}
-
-		for(Iface iface : this.router.getInterfaces().values())
-        {
-			UDP udpPacket = new UDP();
-			IPv4 ipPacket = new IPv4();
-			Ethernet etherPacket = new Ethernet();
-
-			System.out.println("INITPKT");
-
-			udpPacket.setSourcePort(UDP.RIP_PORT);
-			udpPacket.setDestinationPort(UDP.RIP_PORT);
-			udpPacket.setPayload(ripPacket);
-
-			ipPacket.setProtocol(IPv4.PROTOCOL_UDP);
-			ipPacket.setTtl((byte)64);
-			ipPacket.setFlags((byte)2);
-			// TODO: Somehow guarantee uniqueness
-			ipPacket.setIdentification((short)(new Random()).nextInt(Short.MAX_VALUE+1));
-			ipPacket.setDestinationAddress(RIP_MULTICAST_IP);
-			ipPacket.setSourceAddress(iface.getIpAddress());        
-			ipPacket.setPayload(udpPacket);
-			ipPacket.serialize(); // trigger checksum calculation
-
-			etherPacket.setEtherType(Ethernet.TYPE_IPv4);
-			etherPacket.setSourceMACAddress(iface.getMacAddress().toString());
-			etherPacket.setDestinationMACAddress(BROADCAST_MAC);
-			etherPacket.setPayload(ipPacket);
-
-			this.router.sendPacket(etherPacket, iface);
-        }
+		// Initial broadcast request
+		this.sendRip((byte)1);
 	}
 
     /**
@@ -129,10 +90,11 @@ public class RIP implements Runnable
         /*********************************************************************/
 		System.out.println("RECVPKT");
 
-		//response
+		// Response received, update routing table
 		if(ripPacket.getCommand() == ((byte)2))
 		{
 			boolean updated = false;
+
 			for(RIPv2Entry entry : ripPacket.getEntries())
 			{
 				//check to see if it is already in the routetable if it
@@ -154,132 +116,141 @@ public class RIP implements Runnable
 				}
 				else
 				{
-				 	if(rte.getDestinationAddress() == entry.getAddress() &&
-					rte.getDistance() > entry.getMetric())
+					// Update routing table if received route has smaller number
+					// of hops
+				 	if(rte.getDestinationAddress() == entry.getAddress()
+					&& rte.getDistance() > entry.getMetric())
 					{
-										
 						routeTable.updateEntry(	entry.getAddress(),
-											entry.getNextHopAddress(),
-											entry.getSubnetMask(),
-											inIface.getName() );
+												entry.getNextHopAddress(),
+												entry.getSubnetMask(),
+												inIface.getName() );
+
 						updated = true;
-					}else if(rte.getDestinationAddress() == entry.getAddress() &&
-					rte.getDistance() == entry.getMetric())
+					}
+					else if(rte.getDestinationAddress() == entry.getAddress()
+					&& rte.getDistance() == entry.getMetric())
 					{
 						rte.updateTimestamp();
 					}
-					
-			
-				
 				}
 
 				System.out.println(	"Routing table updated: \n"+
 									routeTable.toString() );
 			}
 			
-				if(updated)
-				{
-					this.sendNewPacket((byte)2);
-				}
-
+			if(updated)
+			{
+				this.sendRip((byte)2);
+			}
 		}
-		//request
+		// Request received, reply
 		else if(ripPacket.getCommand() == ((byte)1))
 		{
-			RIPv2 responsePacket = new RIPv2();
-
-			responsePacket.setCommand((byte)2);
-
-			for(	RouteTableEntry rtEntry:
-					this.router.getRouteTable().getEntries() )
-			{
-				//TODO metric is 0, change
-				RIPv2Entry entry
-				   = new RIPv2Entry(	rtEntry.getDestinationAddress(),
-										rtEntry.getMaskAddress(),
-										rtEntry.getDistance() + 1);
-
-				responsePacket.addEntry(entry);      
-			}
-
-			UDP udpResponse = new UDP();
-			IPv4 ipResponse = new IPv4();
-			Ethernet etherResponse = new Ethernet();
-
-			udpResponse.setSourcePort(UDP.RIP_PORT);
-			udpResponse.setDestinationPort(UDP.RIP_PORT);
-			udpResponse.setPayload(responsePacket);
-
-			ipResponse.setProtocol(IPv4.PROTOCOL_UDP);
-			ipResponse.setTtl((byte)64);
-			ipResponse.setFlags((byte)2);
-			//do we need unique number for a reponse?
-			ipResponse.setIdentification((short)(new Random()).nextInt(Short.MAX_VALUE+1));
-			ipResponse.setDestinationAddress(ipPacket.getSourceAddress());
-			//correct source?
-			ipResponse.setSourceAddress(inIface.getIpAddress());        
-			ipResponse.setPayload(udpResponse);
-			ipResponse.serialize(); // trigger checksum calculation
-
-			etherResponse.setEtherType(Ethernet.TYPE_IPv4);
-			//inIface mac address as source?
-			etherResponse.setSourceMACAddress(inIface.getMacAddress().toString());
-			etherResponse.setDestinationMACAddress(etherPacket.getSourceMAC().toString());
-			etherResponse.setPayload(ipResponse);
-
-			this.router.sendPacket(etherResponse, inIface);  
+			this.sendRip(	(byte)2,
+							inIface,
+							ipPacket.getSourceAddress(),
+							etherPacket.getSourceMAC().toString() );
 		}
 	}
-    public void sendNewPacket(byte command)
-	{
 
+	// Set inIface = null, dest = -1, and destMac = null to broadcast
+    private void sendRip(byte command, Iface inIface, int dest, String destMac)
+	{
+		Iterator<Iface> ifaceIter
+			= this.router.getInterfaces().values().iterator();
+
+		boolean done = false;
+
+		while(!done)
+		{
 			RIPv2 ripPacket = new RIPv2();
+			Iface iface;
+
+			// broadcast
+			if(inIface == null)
+			{
+				if(ifaceIter.hasNext())
+				{
+					iface = ifaceIter.next();
+				}
+				else
+				{
+					// TODO: Avoid premature loop exit
+					break;
+				}
+			}
+			// not broadcast
+			else
+			{
+				iface = inIface;
+				
+				done = true;
+			}
 
 			ripPacket.setCommand(command);
 
+			// For simplicity in implementing split horizon, packet construction
+			// is done once for each interface
 			for(	RouteTableEntry rtEntry:
 					this.router.getRouteTable().getEntries() )
 			{
-				//TODO metric is not always 0, change
-				RIPv2Entry entry
-				   = new RIPv2Entry(	rtEntry.getDestinationAddress(),
-										rtEntry.getMaskAddress(),
-										rtEntry.getDistance() + 1);
+				// Split horizon: do not send route received from neighbor back to
+				// it
+				if(rtEntry.getDestinationAddress() != dest)
+				{
+					RIPv2Entry entry
+					   = new RIPv2Entry(	rtEntry.getDestinationAddress(),
+											rtEntry.getMaskAddress(),
+											rtEntry.getDistance() + 1);
 
-				ripPacket.addEntry(entry);      
+					ripPacket.addEntry(entry);      
+				}
 			}
 
-			for(Iface iface : this.router.getInterfaces().values())
+			UDP udpPacket = new UDP();
+			IPv4 ipPacket = new IPv4();
+			Ethernet etherPacket = new Ethernet();
+
+			System.out.println("SENDRIP");
+
+			udpPacket.setSourcePort(UDP.RIP_PORT);
+			udpPacket.setDestinationPort(UDP.RIP_PORT);
+			udpPacket.setPayload(ripPacket);
+
+			ipPacket.setProtocol(IPv4.PROTOCOL_UDP);
+			ipPacket.setTtl((byte)64);
+			ipPacket.setFlags((byte)2);
+			// TODO: Somehow guarantee uniqueness
+			ipPacket.setIdentification((short)(new Random()).nextInt(Short.MAX_VALUE+1));
+			ipPacket.setDestinationAddress((dest == -1)?RIP_MULTICAST_IP:dest);
+			ipPacket.setSourceAddress(iface.getIpAddress());        
+			ipPacket.setPayload(udpPacket);
+			ipPacket.serialize(); // trigger checksum calculation
+
+			etherPacket.setEtherType(Ethernet.TYPE_IPv4);
+			etherPacket.setSourceMACAddress(iface.getMacAddress().toString());
+
+			if(destMac == null)
 			{
-				UDP udpPacket = new UDP();
-				IPv4 ipPacket = new IPv4();
-				Ethernet etherPacket = new Ethernet();
-
-				System.out.println("UPDATEPKT");
-
-				udpPacket.setSourcePort(UDP.RIP_PORT);
-				udpPacket.setDestinationPort(UDP.RIP_PORT);
-				udpPacket.setPayload(ripPacket);
-
-				ipPacket.setProtocol(IPv4.PROTOCOL_UDP);
-				ipPacket.setTtl((byte)64);
-				ipPacket.setFlags((byte)2);
-				// TODO: Somehow guarantee uniqueness
-				ipPacket.setIdentification((short)(new Random()).nextInt(Short.MAX_VALUE+1));
-				ipPacket.setDestinationAddress(RIP_MULTICAST_IP);
-				ipPacket.setSourceAddress(iface.getIpAddress());        
-				ipPacket.setPayload(udpPacket);
-				ipPacket.serialize(); // trigger checksum calculation
-
-				etherPacket.setEtherType(Ethernet.TYPE_IPv4);
-				etherPacket.setSourceMACAddress(iface.getMacAddress().toString());
 				etherPacket.setDestinationMACAddress(BROADCAST_MAC);
-				etherPacket.setPayload(ipPacket);
-
-				this.router.sendPacket(etherPacket,iface);      
-
 			}
+			else
+			{
+				etherPacket.setDestinationMACAddress(destMac);
+			}
+
+			etherPacket.setPayload(ipPacket);
+
+			this.router.sendPacket(etherPacket,iface);      
+		}
 	}
+
+    private void sendRip(byte command)
+	{
+		this.sendRip(command, null, -1, null);
+	}
+
     /**
       * Perform periodic RIP tasks.
       */
@@ -300,67 +271,27 @@ public class RIP implements Runnable
 			{
 				System.out.println(e.getMessage());
 			}
-			List<RouteTableEntry> rteToRemove = new LinkedList<RouteTableEntry>();
+
+			// Remove expired routing table entries
+			List<RouteTableEntry> rteToRemove
+				= new LinkedList<RouteTableEntry>();
+
 			for(RouteTableEntry rte : this.router.getRouteTable().getEntries())
 			{
-				if((System.currentTimeMillis()/1000L - rte.getTimestamp() >=
-				TIMEOUT))
-					{
-						rteToRemove.add(rte);
-					}
+				if((System.currentTimeMillis()/1000L
+				- rte.getTimestamp() >= TIMEOUT))
+				{
+					rteToRemove.add(rte);
+				}
 			}
 			
-			for(RouteTableEntry rte : rteToRemove){
-
-				this.router.getRouteTable().removeEntry(rte.getDestinationAddress(),
-				rte.getMaskAddress());
-			
-			}
-			RIPv2 ripPacket = new RIPv2();
-
-			ripPacket.setCommand((byte)2);
-
-			for(	RouteTableEntry rtEntry:
-					this.router.getRouteTable().getEntries() )
+			for(RouteTableEntry rte : rteToRemove)
 			{
-				//TODO metric is not always 0, change
-				RIPv2Entry entry
-				   = new RIPv2Entry(	rtEntry.getDestinationAddress(),
-										rtEntry.getMaskAddress(),
-										rtEntry.getDistance() + 1);
-
-				ripPacket.addEntry(entry);      
+				this.router.getRouteTable().removeEntry
+					(rte.getDestinationAddress(), rte.getMaskAddress());
 			}
 
-			for(Iface iface : this.router.getInterfaces().values())
-			{
-				UDP udpPacket = new UDP();
-				IPv4 ipPacket = new IPv4();
-				Ethernet etherPacket = new Ethernet();
-
-				System.out.println("UPDATEPKT");
-
-				udpPacket.setSourcePort(UDP.RIP_PORT);
-				udpPacket.setDestinationPort(UDP.RIP_PORT);
-				udpPacket.setPayload(ripPacket);
-
-				ipPacket.setProtocol(IPv4.PROTOCOL_UDP);
-				ipPacket.setTtl((byte)64);
-				ipPacket.setFlags((byte)2);
-				// TODO: Somehow guarantee uniqueness
-				ipPacket.setIdentification((short)(new Random()).nextInt(Short.MAX_VALUE+1));
-				ipPacket.setDestinationAddress(RIP_MULTICAST_IP);
-				ipPacket.setSourceAddress(iface.getIpAddress());        
-				ipPacket.setPayload(udpPacket);
-				ipPacket.serialize(); // trigger checksum calculation
-
-				etherPacket.setEtherType(Ethernet.TYPE_IPv4);
-				etherPacket.setSourceMACAddress(iface.getMacAddress().toString());
-				etherPacket.setDestinationMACAddress(BROADCAST_MAC);
-				etherPacket.setPayload(ipPacket);
-
-				this.router.sendPacket(etherPacket,iface);      
-			}
+			this.sendRip((byte)2);
         }
 	}
 }
